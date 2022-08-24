@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	ip := net.ParseIP("172.24.14.255")
+	ip := net.ParseIP("172.24.32.1")
 	srcAddr := &net.UDPAddr{IP: net.IPv4zero, Port: 0}
 	dstAddr := &net.UDPAddr{IP: ip, Port: 9981}
 	conn, err := net.ListenUDP("udp", srcAddr)

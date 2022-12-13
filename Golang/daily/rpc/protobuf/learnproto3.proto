@@ -1,0 +1,300 @@
+syntax="proto3";
+//第一行定义使用的是proto3语法, 不定义默认使用proto2
+//前面不能有空行或者注释行
+
+message SearchRequest {
+  string query = 1;
+  int32  page_number = 2;
+  int32  result_per_page = 3;
+}
+//定义一消息, 消息中的每个字段都需要有类型和名称 并分配唯一的数字-字段编号
+//这些字段编号用于以消息二进制格式标识您的字段, 并且再使用后不更改
+//1~15 范围内的字段编号字段类型 ,需要一个字节来编码
+//16~2047范围内的 需要2个字节来编码
+//常用的消息元素使用1~15
+//最小字段编号为1 最大的是2^29-1 (536870911)
+//同时不能使用19000~19999 这是protobuf保留数字,使用protobuf会报错
+//
+
+//指定字段规则
+//singular 当使用proto3语法时，当没有为给定字段指定其他字段规则时，这是默认字段规则
+//         您无法确定它是否是从连线中解析的。除非它是默认值，否则将被序列化到导线
+//optional 与singular不同你可以检查该值是否被显式设置
+//         该字段未设置, 将返回默认值
+//repeated 这个字段类型在一个格式良好的message中能够被重复零次或多次
+//map      这是成对的键/值字段类型。
+
+//可以在单个 .proto 文件中定义多种消息类型
+//eg:
+
+message SearchRequest2 {
+  string query = 1; //注释
+  int32 page_number = 2;
+  int32 result_per_page = 3;
+}
+
+//增加注释
+//要向 .proto 文件添加注释，请使用 C/C++ 样式的 // 和 /* ... */ 语法。
+/* 注释123 */
+
+
+//Reserved Fields 保留字段
+//如果你通过完全删除一个字段来更新一个消息类型，或者把它注释掉，
+//那么未来的用户在对该类型进行自己的更新时可以重复使用这个字段的编号。
+//如果他们后来加载同一.proto的旧版本，这可能会导致严重的问题，包括数据损坏、隐私错误等等。
+//确保这种情况不会发生的一个方法是指定你删除的字段的字段号（和/或名称，这也会给JSON序列化带来问题）被保留。
+//如果将来有任何用户试图使用这些字段标识符，协议缓冲区编译器会提示。
+message Foo {
+  reserved 2, 15, 9 to 11;
+  reserved "foo", "bar";
+}
+//不能在同一保留语句中混合使用字段名称和字段编号。
+
+//标量值类型
+//.proto Type       Go Type
+//double            float64
+//float             float32
+//int32             int32
+//int64             int64
+//uint32            uint32
+//uint64            uint64
+//sint32            int32
+//sint64            int64
+//fixed32           uint32
+//fixed64           uint64
+//sfixed32	        int32
+//sfixed64          int64
+//bool              bool
+//string            string
+//bytes             []byte
+
+//默认值
+//string  空字符串
+//bytes   空bytes
+//bool    false
+//数字类型 0
+//enums   默认值是第一个枚举值, 必须是0
+//对于消息字段，该字段未设置。它的确切值取决于语言。
+//请注意，对于标量消息字段，一旦消息被解析，就无法知道一个字段是否被明确地设置为默认值
+//（例如，一个布尔值是否被设置为false），或者根本就没有设置：
+//在定义你的消息类型时，你应该记住这一点。
+//例如，如果你不希望某些行为在默认情况下发生，
+//那么就不要设置一个布尔值，当它被设置为false时，就会开启某些行为。
+//还要注意的是，如果一个标量消息字段被设置为默认值，那么该值将不会在网上被序列化
+
+//当你定义一个消息类型时，你可能希望它的一个字段只具有预定义的值列表中的一个。
+//例如，假设你想为每个SearchRequest添加一个语料库字段，语料库可以是UNIVERSAL、WEB、IMAGES、LOCAL、NEWS、 PRODUCTS或 VIDEO。
+//你可以通过在你的消息定义中添加一个枚举，并为每个可能的值添加一个常数，来非常简单地做到这一点。
+enum Corpus {
+  CORPUS_UNSPECIFIED = 0;
+  CORPUS_UNIVERSAL = 1;
+  CORPUS_WEB = 2;
+  CORPUS_IMAGES = 3;
+  CORPUS_LOCAL = 4;
+  CORPUS_NEWS = 5;
+  CORPUS_PRODUCTS = 6;
+  CORPUS_VIDEO = 7;
+}
+message SearchRequest3 {
+  string query = 1;
+  int32 page_number = 2;
+  int32 result_per_page = 3;
+  Corpus corpus = 4;
+}
+//Corpus枚举的第一个常量映射为零：
+//每个枚举定义必须包含一个映射为零的常量作为其第一个元素。
+//必须有一个零值，以便我们可以使用 0 作为数字默认值。
+//零值需要是第一个元素，以便与第一个枚举值始终是默认值的 proto2 语义兼容。
+//你可以通过给不同的枚举常量分配相同的值来定义别名。
+//要做到这一点，你需要将allow_alias选项设置为true，
+//否则当发现别名时，协议编译器会产生错误信息。
+//尽管所有的别名值在反序列化时都是有效的，但在序列化时总是使用第一个值。
+enum EnumAllowingAlias {
+  option allow_alias = true;
+  EAA_UNSPECIFIED = 0;
+  EAA_STARTED = 1;
+  EAA_RUNNING = 1;
+  EAA_FINISHED = 2;
+}
+enum EnumNotAllowingAlias {
+  ENAA_UNSPECIFIED = 0;
+  ENAA_STARTED = 1;
+  // ENAA_RUNNING = 1;  // Uncommenting this line will cause a compile error inside Google and a warning message outside.
+  ENAA_FINISHED = 2;
+}
+/**
+枚举器常量必须在32位整数的范围内。
+由于枚举值在电线上使用varint编码，负值的效率很低，因此不推荐使用。
+你可以在一个消息定义中定义枚举，就像上面的例子一样，也可以在外面定义
+这些枚举可以在你的.proto文件中的任何消息定义中重复使用。
+你也可以使用语法_MessageType_._EnumType_，将一条消息中声明的枚举类型作为另一条消息中的字段类型。
+ */
+
+/**
+当你在一个使用枚举的.proto上运行协议缓冲区编译器时，
+生成的代码对于Java、Kotlin或C++会有一个相应的枚举，
+或者对于Python有一个特殊的EnumDescriptor类，
+用来在运行时生成的类中创建一组具有整数值的符号常数。
+ */
+
+/**
+**注意：**生成的代码可能会受到特定语言对枚举器数量的限制（一种语言低至数千）。
+请查看你计划使用的语言的限制
+ */
+
+/**
+在反序列化过程中，未被识别的枚举值将被保留在消息中，
+尽管当消息被反序列化时如何表示是取决于语言的。
+在支持开放枚举类型的语言中，其值超出了指定的符号范围，
+如C++和Go，未知的枚举值被简单地存储为其基础的整数表示。
+在具有封闭枚举类型的语言中，如Java，枚举中的一个案例被用来表示一个未被识别的值，
+并且底层的整数可以被特殊的访问器访问。
+在这两种情况下，如果消息被序列化，未被识别的值仍将与消息一起被序列化。
+ */
+
+//保留值
+/**
+如果你通过完全删除一个枚举条目来更新一个枚举类型，或者把它注释掉，
+那么未来的用户在对该类型进行自己的更新时可以重新使用这个数值。
+如果他们后来加载同一.proto的旧版本，这可能会导致严重的问题，
+包括数据损坏、隐私错误等等。确保这种情况不会发生的一个方法是，
+指定你删除的条目的数值（和/或名称，这也会给JSON序列化带来问题）是保留的。
+如果将来有任何用户试图使用这些标识符，协议缓冲区编译器会抱怨。
+你可以使用max关键字指定你的保留数值范围，直到可能的最大值
+ */
+enum Fooa {
+  reserved 2, 15, 9 to 11, 40 to max;
+  reserved "FOO", "BAR";
+}
+//注意: 不能在同一保留语句中混合使用字段名和数值。
+
+//使用其他消息类型
+/**
+你可以使用其他消息类型作为字段类型。
+例如，假设你想在每个SearchResponse消息中包含结果消息--要做到这一点，
+你可以在同一个.proto中定义一个结果消息类型，
+然后在SearchResponse中指定一个结果类型的字段。
+ */
+
+message SearchResponse {
+  repeated Result results = 1;
+}
+
+message Result {
+  string url = 1;
+  string title = 2;
+  repeated string snippets = 3;
+}
+
+//导入定义
+//你可以通过导入其他.proto文件的定义来使用它们。
+//要导入另一个.proto的定义，你需要在文件的顶部添加一个导入语句。
+import "myproject/other_protos.proto";
+//默认情况下，你只能使用直接导入的.proto文件中的定义。
+//然而，有时你可能需要将一个.proto文件移动到一个新的位置。
+//与其直接移动.proto文件并在一次更改中更新所有的调用站点，
+//你可以在旧的位置放置一个占位符.proto文件，
+//使用导入的公共概念将所有的导入转到新的位置。
+
+//协议编译器在协议编译器命令行上使用-I/--proto_path标志指定的一组目录中搜索导入的文件。
+//如果没有给出标志，它就在编译器被调用的目录中寻找。
+//一般来说，你应该将 --proto_path 标志设置为项目的根目录，并对所有导入文件使用完全合格的名称。
+
+
+//嵌套类型
+//你可以在其他消息类型中定义和使用消息类型，
+//就像下面的例子一样--这里，结果消息被定义在SearchResponse消息中。
+
+message SearchResponse1 {
+  message Result {
+    string url = 1;
+    string title = 2;
+    repeated string snippets = 3;
+  }
+  repeated Result results = 1;
+}
+//你想在其父级消息类型之外重复使用这个消息类型，你就把它称为_Parent_._Type_
+message SomeOtherMessage {
+  SearchResponse1.Result result = 1;
+}
+message Outer {                  // Level 0
+  message MiddleAA {  // Level 1
+    message Inner {   // Level 2
+      int64 ival = 1;
+      bool  booly = 2;
+    }
+  }
+  message MiddleBB {  // Level 1
+    message Inner {   // Level 2
+      int32 ival = 1;
+      bool  booly = 2;
+    }
+  }
+}
+
+//更新消息类型
+//如果一个现有的消息类型不再满足你的所有需求--
+//例如，你希望消息格式有一个额外的字段--但你仍然想使用用旧格式创建的代码，不要担心！
+//更新消息类型非常简单，不会破坏你现有的任何代码。
+//更新消息类型是非常简单的，不会破坏你现有的任何代码。只要记住以下规则。
+// * 不要改变任何现有字段的字段号。
+// * 如果你添加了新的字段，任何由使用你的 "旧 "消息格式的代码序列化的消息仍然可以被你新生成的代码解析。
+//你应该记住这些元素的默认值，以便新的代码可以正确地与旧代码生成的消息互动。
+//同样，由你的新代码创建的消息可以被你的旧代码解析：
+//旧的二进制文件在解析时只需忽略新字段。详见未知字段部分
+// * 字段可以被删除，只要字段号不在你更新的消息类型中再次使用。
+//你可能想重命名这个字段，也许加上前缀 "OBSOLETE_"，或者把字段号保留下来，
+//这样你的.proto的未来用户就不会意外地重复使用这个号码。
+// * int32、uint32、int64、uint64和bool都是兼容的--这意味着你可以将一个字段从这些类型中的一个改为另一个，而不会破坏向前或向后的兼容性。
+//如果从电线上解析出的数字不符合相应的类型，你会得到与你在C++中把数字投到该类型的相同效果（例如，如果一个64位的数字被读成int32，它将被截断为32位）。
+// * sint32和sint64是相互兼容的，但与其他整数类型不兼容。
+// * 只要字节是有效的UTF-8，string和字节就可以兼容。
+// * 如果字节包含信息的编码版本，则嵌入式信息与字节兼容。
+// * fixed32与sfixed32兼容，而fixed64与sfixed64兼容。
+// * 对于字符串、字节和消息字段，单数字段与重复字段兼容。
+//给予重复字段的序列化数据作为输入，如果是原始类型的字段，期望这个字段是单数的客户端将采取最后的输入值，
+//如果是消息类型的字段，将合并所有输入元素。
+//请注意，这对于数字类型，包括布尔和枚举，通常是不安全的。
+//数字类型的重复字段可以用打包格式进行序列化，
+//当预期有一个单数字段时，它将不会被正确解析。
+// * 枚举与int32、uint32、int64和uint64在线格式方面是兼容的（注意，如果数值不合适，会被截断）。
+//但是要注意，当消息被反序列化时，客户端代码可能会对它们进行不同的处理：
+//例如，未被识别的proto3枚举类型将被保留在消息中，但是当消息被反序列化时，如何表示是取决于语言的。
+//Int字段总是只保留它们的值。
+// * 将一个单独的可选字段或扩展名改变为新的oneof的成员是安全的，并且二进制兼容。
+//如果你确定没有代码同时设置一个以上的字段，那么将多个字段移入一个新的oneof中可能是安全的。
+//将任何字段移入一个现有的oneof中是不安全的。同样地，将单个字段oneof改为可选字段或扩展是安全的
+
+
+//未知字段
+//未知字段是格式良好的协议缓冲区序列化数据，代表解析器不认识的字段。
+//例如，当一个旧的二进制文件解析一个新的二进制文件发送的带有新字段的数据时，
+//这些新字段就成为旧二进制文件中的未知字段。
+
+//Any
+///Any消息类型让你把消息作为嵌入式类型使用，而不需要他们的.proto定义。
+//一个Any包含一个任意的序列化消息的字节，以及一个作为全局唯一标识符的URL，
+//并解析为该消息的类型。要使用Any类型，你需要导入google/protobuf/any.proto。
+import "google/protobuf/any.proto";
+message ErrorStatus {
+  string message = 1;
+  repeated google.protobuf.Any details = 2;
+}
+//给定消息类型的默认类型URL是type.googleapis.com/_packagename_._messagename_。
+//
+//不同的语言实现将支持运行时库帮助器，以类型安全的方式打包和解压Any值--例如，
+//在Java中，Any类型将有特殊的pack()和unpack()访问器，而在C++中有PackFrom()和UnpackTo()方法。
+//// Storing an arbitrary message type in Any.
+//NetworkErrorDetails details = ...;
+//ErrorStatus status;
+//status.add_details()->PackFrom(details);
+//
+//// Reading an arbitrary message from Any.
+//ErrorStatus status = ...;
+//for (const google::protobuf::Any& detail : status.details()) {
+//  if (detail.Is<NetworkErrorDetails>()) {
+//    NetworkErrorDetails network_error;
+//    detail.UnpackTo(&network_error);
+//    ... processing network_error ...
+//  }
+//}
